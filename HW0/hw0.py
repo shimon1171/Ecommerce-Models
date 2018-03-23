@@ -2,6 +2,24 @@ import csv
 
 Graph = {}
 
+
+
+
+
+
+########################################################################################
+###################  csv files to dictionaries #########################################
+with open("graph.csv","r") as csvfile:
+    reader = csv.DictReader(csvfile)
+    # note : field_names = ['Node 1', 'Node 2','W or S' ]
+    for row in reader:
+        Graph[(row['Node 1'],row['Node 2'])] = row['W or S']
+csvfile.close()
+
+
+#######################################################################################
+############## Insert Your Answers ####################################################
+
 strong_edge = "s"
 weak_edge = "w"
 empyt_edge = ""
@@ -26,8 +44,7 @@ def get_edge_weight(dic, a, b):
         edge = edge_b_a
     return edge_weight , edge
 
-def change_weak_edge_to_strong(nodes_dic,Graph):
-    is_change = False
+def build_empyt_edges_weight_lists(empyt_edges_weight, nodes_dic,Graph):
     for x in nodes_dic:
         list_of_connected_nodes = nodes_dic[x]
         number_of_connected_nodes = len(list_of_connected_nodes)
@@ -41,31 +58,21 @@ def change_weak_edge_to_strong(nodes_dic,Graph):
 
                 if a_b_edge_weight == not_exsist_edge:
                     continue
-
                 x_a_edge_weight, x_a_edge = get_edge_weight(Graph, x, a)
                 x_b_edge_weight, x_b_edge = get_edge_weight(Graph, x, b)
 
-                if x_a_edge_weight == strong_edge and x_b_edge_weight == strong_edge:
-                    if Graph[a_b_edge] != strong_edge:
-                        Graph[a_b_edge] = strong_edge
-                        is_change = True
-    return is_change
+                if a_b_edge_weight == empyt_edge:
+                    if x_a_edge_weight == strong_edge and x_b_edge_weight == strong_edge:
+                        empyt_edges_weight[a_b_edge].append(weak_edge)
+
+                if a_b_edge_weight == strong_edge:
+                    if x_a_edge_weight == strong_edge and x_b_edge_weight == empyt_edge:
+                        empyt_edges_weight[x_b_edge].append(strong_edge)
+                    elif x_a_edge_weight == empyt_edge and x_b_edge_weight == strong_edge:
+                        empyt_edges_weight[x_a_edge].append(strong_edge)
 
 
-########################################################################################
-###################  csv files to dictionaries #########################################
-with open("graph.csv","r") as csvfile:
-    reader = csv.DictReader(csvfile)
-    # note : field_names = ['Node 1', 'Node 2','W or S' ]
-    for row in reader:
-        Graph[(row['Node 1'],row['Node 2'])] = row['W or S']
-csvfile.close()
-
-
-#######################################################################################
-############## Insert Your Answers ####################################################
-
-# get all nodes
+# for ech node we bulid list of all connected nodes
 nodes_dic = {}
 for key in Graph:
     a = key[0]
@@ -73,23 +80,34 @@ for key in Graph:
     add_node_to_dic(nodes_dic,a,b)
     add_node_to_dic(nodes_dic,b,a)
 
-
-# first : we put in each empty edge weak symbol
-for key in Graph:
-    edge_weight = Graph[key]
+# for eche empty edge we bulid list of all optinal weight option
+empyt_edges_weight = {}
+for nodes_tuple in Graph:
+    edge_weight = Graph[nodes_tuple]
     if edge_weight == empyt_edge:
-        Graph[key] = weak_edge
+        empyt_edges_weight[nodes_tuple] = []
 
-# second : change weak edge to strong until all Graph is OK
-# our Graph goal definition : if there is a strong edge between A-B and A-C , we expect to be a strong edge between B-C
-while( change_weak_edge_to_strong(nodes_dic,Graph) == True):
-    print("change_weak_edge_to_strong")
+build_empyt_edges_weight_lists(empyt_edges_weight, nodes_dic,Graph)
+
+# we choose for eche empty edge tha maximum value of weight that it can get : max is strong.
+for nodes_tuple in empyt_edges_weight:
+    weights = empyt_edges_weight[nodes_tuple]
+    if strong_edge in weights:
+        Graph[nodes_tuple] = strong_edge
+    else:
+        Graph[nodes_tuple] = weak_edge
+
+
+
+#######################################################################################
+###################### End Answers ####################################################
+
 
 
 
 ########################################################################################
 #######  output file ###################################################################        
-with open('HW0_037036209_123456789.csv', 'w' ) as write_file:
+with open('HW0_037036209_XXXXXXXXX.csv', 'w' ) as write_file:
     writer = csv.writer(write_file, lineterminator='\n')
     fieldnames2 = ["Node 1" , "Node 2" ,"W or S"]
     writer.writerow(fieldnames2)
