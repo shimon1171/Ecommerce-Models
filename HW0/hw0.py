@@ -2,11 +2,6 @@ import csv
 
 Graph = {}
 
-
-
-
-
-
 ########################################################################################
 ###################  csv files to dictionaries #########################################
 with open("graph.csv","r") as csvfile:
@@ -52,7 +47,7 @@ def build_empyt_edges_weight_lists(empyt_edges_weight, nodes_dic,Graph):
             continue
         for i in range(0, number_of_connected_nodes - 2):
             a = list_of_connected_nodes[i]
-            for j in range(1, number_of_connected_nodes - 1):
+            for j in range(i+1, number_of_connected_nodes - 1):
                 b = list_of_connected_nodes[j]
                 a_b_edge_weight, a_b_edge = get_edge_weight(Graph, a, b)
 
