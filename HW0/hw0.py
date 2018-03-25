@@ -42,11 +42,17 @@ def build_empyt_edges_weight_lists(empyt_edges_weight, nodes_dic,Graph):
 
                 if a_b_edge_weight == not_exsist_edge:
                     continue
+
                 x_a_edge_weight, x_a_edge = get_edge_weight(Graph, x, a)
                 x_b_edge_weight, x_b_edge = get_edge_weight(Graph, x, b)
 
-                if a_b_edge_weight == empyt_edge:
-                    if x_a_edge_weight == strong_edge and x_b_edge_weight == strong_edge:
+                if a_b_edge_weight == empyt_edge and x_a_edge_weight == strong_edge and x_b_edge_weight == strong_edge:
+                        empyt_edges_weight[a_b_edge].append(weak_edge)
+
+                if x_a_edge_weight == empyt_edge and x_b_edge_weight == empyt_edge:
+                    empyt_edges_weight[x_b_edge].append(strong_edge)
+                    empyt_edges_weight[x_a_edge].append(strong_edge)
+                    if a_b_edge_weight == empyt_edge:
                         empyt_edges_weight[a_b_edge].append(weak_edge)
 
                 if a_b_edge_weight == strong_edge:
