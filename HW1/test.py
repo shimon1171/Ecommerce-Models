@@ -83,8 +83,27 @@ def build_h_graph_with_time(df , time):
     filtered_df = df[ (df[ts_column_name] < time)] # get all samples that are lower that the given time
     return build_h_graph(filtered_df, nodes)
 
+def get_h_sub_graph(H ,nodes , edge_weight ):
+    edgeDataView = H.edges(data=True)
+    list_of_strong_edges = []
+    for edge_data in edgeDataView:
+        node1 = edge_data[0]
+        node2 = edge_data[1]
+        weight = edge_data[2]['weight']
+        if weight == edge_weight:
+            list_of_strong_edges.append((node1, node2))
+    G = nx.Graph()
+    G.add_nodes_from(list(nodes))
+    G.add_edges_from(list_of_strong_edges)
+    return G
 
 
+
+###################################################
+###################################################
+################## Q1 #############################
+###################################################
+###################################################
 
 def compute_distance_between_every_pair_of_nodes(G):
     spl = nx.all_pairs_shortest_path_length(G)
@@ -133,7 +152,11 @@ def Q1():
 
 
 
-
+###################################################
+###################################################
+################## Q2 #############################
+###################################################
+###################################################
 
 def compute_degree(G):
     degrees = {}
@@ -179,33 +202,68 @@ def Q2():
 
 
 
+###################################################
+###################################################
+################## Q3 #############################
+###################################################
+###################################################
+
+def get_neighborhood_overlap_list(G):
+    list_of_no = []
+    nodes = list(G.nodes())
+    for i in range(0, len(nodes) - 1):
+        for j in range(i + 1, len(nodes)):
+            x = nodes[i]
+            y = nodes[j]
+            if x != y :
+                Ex = set(G.neighbors(x))
+                Ey = set(G.neighbors(y))
+                if len(Ex)==0 or len(Ey)==0:
+                    continue
+                union = Ex | Ey
+                intersection = Ex & Ey
+                no_xy = float(len(intersection)) / float(len(union))
+                list_of_no.append(no_xy)
+    return Counter(list_of_no)
+
+def create_histogram_for_neighborhood_overlap_frequencies(frequencies , file_name="Empyt"):
+    plt.xlabel('neighborhood_overlap')
+    plt.ylabel("Frequencies", rotation=90)
+    plt.plot(frequencies.keys(), frequencies.values(), '-bo')
+    if(file_name != "Empyt"):
+        plt.savefig(file_name, format='png', dpi=600)
+    plt.close()
+
+
+def Q3():
+    df = read_graph_by_time_file()
+    nodes = get_all_graph_nodes(df)
+    time = df[ts_column_name].max;
+    H = build_h_graph_with_time(df, time)
+
+    GS = get_h_sub_graph(H, nodes, strong_edge)
+    GW = get_h_sub_graph(H, nodes, weak_edge)
+
+    frequencies = get_neighborhood_overlap_list(GS)
+    create_histogram_for_neighborhood_overlap_frequencies(frequencies , 'q3a_strong.png')
+    frequencies = get_neighborhood_overlap_list(GW)
+    create_histogram_for_neighborhood_overlap_frequencies(frequencies, 'q3a_weak.png')
+
 
 
 
 ###################################################
 ###################################################
 ################## Q4 #############################
+###################################################
+###################################################
+
 
 def stc_index(time):
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
     H = build_h_graph_with_time(df, time)
-
-    edgeDataView = H.edges(data=True)
-
-
-    list_of_strong_edges = []
-    for edge_data in edgeDataView:
-        node1 = edge_data[0]
-        node2 = edge_data[1]
-        weight = edge_data[2]['weight']
-        if weight == strong_edge:
-            list_of_strong_edges.append( (node1,node2) )
-
-    G = nx.Graph()
-    G.add_nodes_from(list(nodes))
-    G.add_edges_from(list_of_strong_edges)
-
+    G = get_h_sub_graph(H, nodes ,strong_edge)
     nodes_stc_dict = {}
     for node in nodes:
         neighbors = list(G.neighbors(node))
@@ -224,6 +282,7 @@ def stc_index(time):
             else:
                 nodes_stc_dict[node] = float(number_edges_between_strong_neighbors_of_node) / float(nCk( len(neighbors) , 2))
     return nodes_stc_dict
+
 def Q4():
     df = read_graph_by_time_file()
     time = df[ts_column_name].max;
@@ -234,7 +293,8 @@ def Q4():
 if __name__ == '__main__':
     #Q1()
     #Q2()
-    Q4()
+    Q3()
+    #Q4()
     # df = read_graph_by_time_file()
     # #g = get_graph_by_time_as_multiGraph(df)
     # g = build_h_graph(df,get_all_graph_nodes(df))
