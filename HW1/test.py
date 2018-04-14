@@ -217,7 +217,7 @@ def stc_index(time):
                 for j in range(i+1,len(neighbors)):
                     n1 = neighbors[i]
                     n2 = neighbors[j]
-                    if n1 != n2 and H.has_edge(n1,n2) :
+                    if n1 != n2 and n1 != node and n2 != node and H.has_edge(n1,n2) :
                         number_edges_between_strong_neighbors_of_node = number_edges_between_strong_neighbors_of_node + 1
             if number_edges_between_strong_neighbors_of_node == 0 :
                 nodes_stc_dict[node] = 0
