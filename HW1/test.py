@@ -23,6 +23,12 @@ h_graph_weight_column_name = 'weight'
 strong_edge = "s"
 weak_edge = "w"
 
+def nCk(n,k):
+    f = math.factorial
+    return (f(n) / (f(k) * f(n-k)))
+
+
+
 def normalizing_dictionary_values(d):
     factor = 1.0 / sum(d.itervalues())
     for k in d:
@@ -172,9 +178,63 @@ def Q2():
 
 
 
+
+
+
+
+###################################################
+###################################################
+################## Q4 #############################
+
+def stc_index(time):
+    df = read_graph_by_time_file()
+    nodes = get_all_graph_nodes(df)
+    H = build_h_graph_with_time(df, time)
+
+    edgeDataView = H.edges(data=True)
+
+
+    list_of_strong_edges = []
+    for edge_data in edgeDataView:
+        node1 = edge_data[0]
+        node2 = edge_data[1]
+        weight = edge_data[2]['weight']
+        if weight == strong_edge:
+            list_of_strong_edges.append( (node1,node2) )
+
+    G = nx.Graph()
+    G.add_nodes_from(list(nodes))
+    G.add_edges_from(list_of_strong_edges)
+
+    nodes_stc_dict = {}
+    for node in nodes:
+        neighbors = list(G.neighbors(node))
+        if( len(neighbors) == 0):
+            nodes_stc_dict[node] = 0
+        else:
+            number_edges_between_strong_neighbors_of_node = 0
+            for i in range(0,len(neighbors)-1):
+                for j in range(i+1,len(neighbors)):
+                    n1 = neighbors[i]
+                    n2 = neighbors[j]
+                    if n1 != n2 and H.has_edge(n1,n2) :
+                        number_edges_between_strong_neighbors_of_node = number_edges_between_strong_neighbors_of_node + 1
+            if number_edges_between_strong_neighbors_of_node == 0 :
+                nodes_stc_dict[node] = 0
+            else:
+                nodes_stc_dict[node] = float(number_edges_between_strong_neighbors_of_node) / float(nCk( len(neighbors) , 2))
+    return nodes_stc_dict
+def Q4():
+    df = read_graph_by_time_file()
+    time = df[ts_column_name].max;
+    nodes_feat_dict = stc_index(time)
+
+
+
 if __name__ == '__main__':
     #Q1()
-    Q2()
+    #Q2()
+    Q4()
     # df = read_graph_by_time_file()
     # #g = get_graph_by_time_as_multiGraph(df)
     # g = build_h_graph(df,get_all_graph_nodes(df))
