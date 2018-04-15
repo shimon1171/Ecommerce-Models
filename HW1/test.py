@@ -24,8 +24,10 @@ strong_edge = "s"
 weak_edge = "w"
 
 def nCk(n,k):
-    f = math.factorial
-    return (f(n) / (f(k) * f(n-k)))
+    if 0 < k and k <= n :
+        f = math.factorial
+        return ( f(n) / (f(k) * f(n-k)))
+    return 0
 
 
 
@@ -113,6 +115,7 @@ def create_histogram_as_fig_2_10(frequencies , file_name="Empyt"):
     plt.xlabel('Number of intermediaries')
     plt.ylabel("Number of paris", rotation=90)
     plt.plot(frequencies.keys(), frequencies.values(), '-bo')
+    plt.subplots_adjust(top=0.8)
     if(file_name != "Empyt"):
         plt.savefig(file_name, format='png', dpi=600)
     plt.close()
@@ -164,9 +167,68 @@ def compute_degree(G):
         degrees[node] = val
     return degrees
 
-# def compute_clustering_coefficiente(G):
+def compute_clustering_coefficiente(G):
+    clustering_coefficiente = {}
+    nodes = list(G.nodes())
+    for x in nodes:
+        clustering_coefficiente[x] = cc(x,G)
+    return clustering_coefficiente
+
+def cc(x, G):
+    Ex = list(G.neighbors(x))
+    num_of_neighbors = len(Ex)
+    if num_of_neighbors < 2 :
+        return 0
+
+    up = 0
+    for i in range(0,num_of_neighbors-1):
+        for j in range(i+1, num_of_neighbors ):
+            z = Ex[i]
+            y = Ex[j]
+            if G.has_edge(y,z):
+                up = up + 1
+    return float(up) / float(nCk(num_of_neighbors, 2))
+
+
+
 # def compute_closeness_centrality(G):
-# def compute_betweenness_centrality(G):
+
+def compute_betweenness_centrality(G):
+    betweenness = {}
+    nodes = list(G.nodes())
+    num_of_nodes = len(nodes)
+
+    for x in nodes:
+        betweenness[x] = 0
+
+    for i in range(0,num_of_nodes-1):
+        for j in range(i+1, num_of_nodes ):
+            s = nodes[i]
+            t = nodes[j]
+            try:
+                shortest_paths = list(nx.all_shortest_paths(G, source=s, target=t))
+            except nx.exception.NetworkXNoPath:
+                continue
+            number_of_shortest_paths = len(shortest_paths)
+            if (number_of_shortest_paths == 0):
+                continue
+            for x in nodes:
+                if ((s != x) and (t != x)):
+                    number_of_shortest_paths_include_x = 0
+                    for path in shortest_paths:
+                        if len(path) < 3 :
+                            continue
+                        if x in path:
+                            number_of_shortest_paths_include_x = number_of_shortest_paths_include_x + 1
+                    betweenness[x] = betweenness[x] + number_of_shortest_paths_include_x / number_of_shortest_paths
+
+        factor = 1.0 / float(nCk(num_of_nodes-1,2))
+        for node in nodes:
+            betweenness[node] = factor * betweenness[node]
+
+    return betweenness
+
+
 
 def create_histogram_for_degree_frequencies(frequencies , file_name="Empyt"):
     plt.xlabel('Degree')
@@ -181,13 +243,14 @@ def H_features(time):
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
     H = build_h_graph_with_time(df, time)
+    betweenness_centrality = compute_betweenness_centrality(H)
     degree = compute_degree(H)
+    clustering_coeff = compute_clustering_coefficiente(H)
+
 
     demovalues = [np.random.randn() for _ in nodes]
-    demivalues = [random.uniform(0, 1) for _ in nodes]
-    clustering_coeff = [random.uniform(0, 1) for _ in nodes]
     closeness_centrality = [random.choice(demovalues) for _ in nodes]
-    betweenness_centrality = [random.sample(demivalues, 1) for _ in nodes]
+
 
     for i, node in enumerate(nodes):
         nodes_feat_dict[node] = [degree[i], clustering_coeff[i], closeness_centrality[i], betweenness_centrality[i]]
@@ -208,23 +271,53 @@ def Q2():
 ###################################################
 ###################################################
 
-def get_neighborhood_overlap_list(G):
+def get_h_sub_graph(H ,nodes , edge_weight ):
+    edgeDataView = H.edges(data=True)
+    list_of_strong_edges = []
+    for edge_data in edgeDataView:
+        node1 = edge_data[0]
+        node2 = edge_data[1]
+        weight = edge_data[2]['weight']
+        if weight == edge_weight:
+            list_of_strong_edges.append((node1, node2))
+    G = nx.Graph()
+    G.add_nodes_from(list(nodes))
+    G.add_edges_from(list_of_strong_edges)
+    return G
+
+def get_neighborhood_overlap_list_with_weight(G, edge_weight):
     list_of_no = []
-    nodes = list(G.nodes())
-    for i in range(0, len(nodes) - 1):
-        for j in range(i + 1, len(nodes)):
-            x = nodes[i]
-            y = nodes[j]
-            if x != y :
-                Ex = set(G.neighbors(x))
-                Ey = set(G.neighbors(y))
-                if len(Ex)==0 or len(Ey)==0:
-                    continue
-                union = Ex | Ey
-                intersection = Ex & Ey
-                no_xy = float(len(intersection)) / float(len(union))
-                list_of_no.append(no_xy)
+    edgeDataView = G.edges(data=True)
+    for edge_data in edgeDataView:
+        x = edge_data[0]
+        y = edge_data[1]
+        weight = edge_data[2]['weight']
+        if weight == edge_weight:
+            Ex = set(G.neighbors(x))
+            Ey = set(G.neighbors(y))
+            if len(Ex) == 0 or len(Ey) == 0:
+                continue
+            union = Ex | Ey
+            intersection = Ex & Ey
+            no_xy = float(len(intersection)) / float(len(union))
+            list_of_no.append(no_xy)
     return Counter(list_of_no)
+
+def get_neighborhood_overlap(G):
+    edges_no_overlap = {}
+    edgeDataView = G.edges(data=True)
+    for edge_data in edgeDataView:
+        x = edge_data[0]
+        y = edge_data[1]
+        Ex = set(G.neighbors(x))
+        Ey = set(G.neighbors(y))
+        if len(Ex) == 0 or len(Ey) == 0:
+            continue
+        union = Ex | Ey
+        intersection = Ex & Ey
+        no_xy = float(len(intersection)) / float(len(union))
+        edges_no_overlap[(x,y)] = no_xy
+    return edges_no_overlap
 
 def create_histogram_for_neighborhood_overlap_frequencies(frequencies , file_name="Empyt"):
     plt.xlabel('neighborhood_overlap')
@@ -234,19 +327,20 @@ def create_histogram_for_neighborhood_overlap_frequencies(frequencies , file_nam
         plt.savefig(file_name, format='png', dpi=600)
     plt.close()
 
+def calc_no(time):
+    df = read_graph_by_time_file()
+    H = build_h_graph_with_time(df, time)
+    edges_no_overlap = get_neighborhood_overlap(H)
+    return edges_no_overlap
 
 def Q3():
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
-    time = df[ts_column_name].max;
+    time = df[ts_column_name].max
     H = build_h_graph_with_time(df, time)
-
-    GS = get_h_sub_graph(H, nodes, strong_edge)
-    GW = get_h_sub_graph(H, nodes, weak_edge)
-
-    frequencies = get_neighborhood_overlap_list(GS)
+    frequencies = get_neighborhood_overlap_list_with_weight(H,strong_edge)
     create_histogram_for_neighborhood_overlap_frequencies(frequencies , 'q3a_strong.png')
-    frequencies = get_neighborhood_overlap_list(GW)
+    frequencies = get_neighborhood_overlap_list_with_weight(H,weak_edge)
     create_histogram_for_neighborhood_overlap_frequencies(frequencies, 'q3a_weak.png')
 
 
@@ -292,8 +386,8 @@ def Q4():
 
 if __name__ == '__main__':
     #Q1()
-    #Q2()
-    Q3()
+    Q2()
+    #Q3()
     #Q4()
     # df = read_graph_by_time_file()
     # #g = get_graph_by_time_as_multiGraph(df)
