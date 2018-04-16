@@ -29,8 +29,6 @@ def nCk(n,k):
         return ( f(n) / (f(k) * f(n-k)))
     return 0
 
-
-
 def normalizing_dictionary_values(d):
     factor = 1.0 / sum(d.itervalues())
     for k in d:
@@ -149,12 +147,6 @@ def Q1():
     create_histogram_as_fig_2_11(frequencies , 'q1a_2_11_fig.png')
 
 
-
-
-
-
-
-
 ###################################################
 ###################################################
 ################## Q2 #############################
@@ -179,7 +171,6 @@ def cc(x, G):
     num_of_neighbors = len(Ex)
     if num_of_neighbors < 2 :
         return 0
-
     up = 0
     for i in range(0,num_of_neighbors-1):
         for j in range(i+1, num_of_neighbors ):
@@ -189,9 +180,23 @@ def cc(x, G):
                 up = up + 1
     return float(up) / float(nCk(num_of_neighbors, 2))
 
-
-
-# def compute_closeness_centrality(G):
+def compute_closeness_centrality(G):
+    closeness_centrality = {}
+    nodes = G.nodes()
+    number_of_nodes = len(nodes)
+    for node in nodes:
+        sum = 0
+        for node2 in nodes:
+            if node2 != node:
+                try:
+                    sum+=nx.shortest_path_length(G,node2,node)
+                except nx.exception.NetworkXNoPath:
+                    continue
+        if sum != 0:
+            closeness_centrality[node] = (number_of_nodes-1) / float(sum)
+        else:
+            closeness_centrality[node] = 0
+    return closeness_centrality
 
 def compute_betweenness_centrality(G):
     betweenness = {}
@@ -228,8 +233,6 @@ def compute_betweenness_centrality(G):
 
     return betweenness
 
-
-
 def create_histogram_for_degree_frequencies(frequencies , file_name="Empyt"):
     plt.xlabel('Degree')
     plt.ylabel("Frequencies", rotation=90)
@@ -246,10 +249,7 @@ def H_features(time):
     betweenness_centrality = compute_betweenness_centrality(H)
     degree = compute_degree(H)
     clustering_coeff = compute_clustering_coefficiente(H)
-
-
-    demovalues = [np.random.randn() for _ in nodes]
-    closeness_centrality = [random.choice(demovalues) for _ in nodes]
+    closeness_centrality = compute_closeness_centrality(H)
 
 
     for i, node in enumerate(nodes):
@@ -261,8 +261,6 @@ def Q2():
     df = read_graph_by_time_file()
     time = df[ts_column_name].max;
     nodes_feat_dict = H_features(time)
-
-
 
 
 ###################################################
@@ -343,9 +341,6 @@ def Q3():
     frequencies = get_neighborhood_overlap_list_with_weight(H,weak_edge)
     create_histogram_for_neighborhood_overlap_frequencies(frequencies, 'q3a_weak.png')
 
-
-
-
 ###################################################
 ###################################################
 ################## Q4 #############################
@@ -382,13 +377,316 @@ def Q4():
     time = df[ts_column_name].max;
     nodes_feat_dict = stc_index(time)
 
+###################################################
+###################################################
+################## Competitive part ##############
+###################################################
+###################################################
+
+class ShortestPathsHelper:
+    def __init__(self, G , nodes):
+        num_of_nodes = len(nodes)
+        self.tuple_index = {}
+        index = 0
+        for i in range(0,num_of_nodes):
+            for j in range(0, num_of_nodes ):
+                s = nodes[i]
+                t = nodes[j]
+                if s != t:
+                    if (t,s) in self.tuple_index:
+                        self.tuple_index[(s,t)] =  self.tuple_index[(t,s)]
+                    else:
+                        self.tuple_index[(s, t)] = index
+                        index = index + 1
+        self.shortest_paths_dic = {}
+        self.number_of_shortest_paths_dic = {}
+        for i in range(0,num_of_nodes-1):
+            for j in range(i+1, num_of_nodes ):
+                s = nodes[i]
+                t = nodes[j]
+                try:
+                    shortest_paths = list(nx.all_shortest_paths(G, source=s, target=t))
+                except nx.exception.NetworkXNoPath:
+                    continue
+                number_of_shortest_paths = len(shortest_paths)
+                ind1 = self.tuple_index[(s,t)]
+                ind2 = self.tuple_index[(t,s)]
+                self.number_of_shortest_paths_dic[ind1] = number_of_shortest_paths
+                self.number_of_shortest_paths_dic[ind2] = number_of_shortest_paths
+                if (number_of_shortest_paths == 0):
+                    continue
+                self.shortest_paths_dic[ ind1 ] = shortest_paths
+                self.shortest_paths_dic[ ind2 ] = shortest_paths
+
+    def get_number_of_shortest_paths_include_x(self,s,t,x):
+        if (s, t) not in self.tuple_index:
+            return 0
+        if ((s == x) or (t == x)):
+            return 0
+        ind = self.tuple_index[(s, t)]
+        if ind not in self.shortest_paths_dic:
+            return 0
+        shortest_paths = self.shortest_paths_dic[ind]
+        number_of_shortest_paths_include_x = 0
+        for path in shortest_paths:
+            if len(path) < 3:
+                continue
+            if x in path:
+                number_of_shortest_paths_include_x = number_of_shortest_paths_include_x + 1
+        return number_of_shortest_paths_include_x
+
+    def get_number_of_shortest_paths(self, s,t):
+        if (s,t) not in self.tuple_index:
+            return 0
+        ind = self.tuple_index[(s, t)]
+        return self.number_of_shortest_paths_dic[ind]
+
+    def get_shortest_path_length(self,s,t):
+        if (s,t) not in self.tuple_index:
+            return 0
+        ind = self.tuple_index[(s, t)]
+        if ind not in self.shortest_paths_dic:
+            return 0
+        shortest_paths = self.shortest_paths_dic[ind]
+        return len(shortest_paths[0])
+
+class NodeProbabilityClass:
+    def __init__(self, G ,H):
+        self.nodes = list(G.nodes())
+
+        #sph = ShortestPathsHelper(H,self.nodes)
+
+        degrees_for_orig = compute_degree(G)
+        degrees_for_h = compute_degree(H)
+        clustering = compute_clustering_coefficiente(H)
+        closeness = compute_closeness_centrality(H)
+        #betweenness = compute_betweenness_centrality_(H,sph)
+
+        self.degrees_for_orig = normalizing_dictionary_values(degrees_for_orig)
+        self.degrees_for_h = normalizing_dictionary_values(degrees_for_h)
+        self.clustering = normalizing_dictionary_values(clustering)
+        self.closeness = normalizing_dictionary_values(closeness)
+       # self.betweenness = normalizing_dictionary_values(betweenness)
+
+
+    def get_probability_for_each_node(self,degrees_for_orig_cof,degrees_for_h_cof,clustering_cof,closeness_cof,betweenness_cof):
+        probability = {}
+        for x in self.nodes:
+            probability[x] = degrees_for_orig_cof * self.degrees_for_orig[x] + \
+                             degrees_for_h_cof * self.degrees_for_orig[x] +\
+                             clustering_cof * self.clustering[x] + \
+                              closeness_cof * self.closeness[x]
+                             # betweenness_cof * self.betweenness[x]
+
+        return normalizing_dictionary_values(probability)
+
+def get_probability_for_each_neighbors_node(G , node_probability , factor_neighbor_probability):
+    probabilities = {}
+    nodes = list(G.nodes())
+    for x in nodes:
+        n = list([c[1] for c in list(G.edges(x))])
+        frequencies = Counter(n)
+        frequencies = normalizing_dictionary_values(frequencies)
+        for neighbor in frequencies.keys():
+            neighbor_general_weight = node_probability[neighbor]
+            neighbor_probability = frequencies[neighbor]
+            frequencies[neighbor] = (1-factor_neighbor_probability) * neighbor_general_weight + factor_neighbor_probability * neighbor_probability
+        probabilities[x] = normalizing_dictionary_values(frequencies)
+    return probabilities
+
+def compute_closeness_centrality_(G , SPH):
+    closeness_centrality = {}
+    nodes = G.nodes()
+    number_of_nodes = len(nodes)
+    for node in nodes:
+        sum = 0
+        for node2 in nodes:
+            if node2 != node:
+                sum += SPH.get_shortest_path_length(node2, node)
+        if sum != 0:
+            closeness_centrality[node] = (number_of_nodes-1) / float(sum)
+        else:
+            closeness_centrality[node] = 0
+    return closeness_centrality
+
+def compute_betweenness_centrality_(G , SPH):
+    betweenness = {}
+    nodes = list(G.nodes())
+    num_of_nodes = len(nodes)
+
+    for x in nodes:
+        betweenness[x] = 0
+
+    for i in range(0,num_of_nodes-1):
+        for j in range(i+1, num_of_nodes ):
+            s = nodes[i]
+            t = nodes[j]
+            number_of_shortest_paths = SPH.get_number_of_shortest_paths(s,t)
+            if (number_of_shortest_paths == 0):
+                continue
+            for x in nodes:
+                number_of_shortest_paths_include_x = SPH.get_number_of_shortest_paths_include_x(s,t,x)
+                betweenness[x] = betweenness[x] + number_of_shortest_paths_include_x / number_of_shortest_paths
+
+        factor = 1.0 / float(nCk(num_of_nodes-1,2))
+        for node in nodes:
+            betweenness[node] = factor * betweenness[node]
+
+    return betweenness
+
+
+def CompetitivePart():
+    df = read_graph_by_time_file()
+    cross_validation(df)
+    # nodes = get_all_graph_nodes(df)
+    # G = get_graph_by_time_as_multiGraph(df)
+    # H = build_h_graph(df,nodes)
+
+
+def predict_future_links(k):
+    df = read_graph_by_time_file()
+    nodes = get_all_graph_nodes(df)
+    G = get_graph_by_time_as_multiGraph(df)
+    H = build_h_graph(df, nodes)
+    nodeProbabilityClass = NodeProbabilityClass(G, H)
+
+    factor_neighbor_probability = 0.9
+    degrees_for_orig_cof = 0.6
+    degrees_for_h_cof = 0.1
+    clustering_cof = 0.1
+    closeness_cof = 0.1
+    betweenness_cof = 0.1
+
+    node_probability = nodeProbabilityClass.get_probability_for_each_node(degrees_for_orig_cof, degrees_for_h_cof,
+                                                                      clustering_cof, closeness_cof, betweenness_cof)
+    neighbors_node_probability = get_probability_for_each_neighbors_node(G, node_probability,
+                                                                         factor_neighbor_probability)
+
+    future_links = []
+    for i in range(0,k):
+        node1 = random_distr(node_probability)
+        neighbors = neighbors_node_probability[node1]
+        node2 = random_distr(neighbors)
+        future_links.append( (node1,node2))
+    return future_links
+
+def save_predict_future_links_in_file(future_links):
+    df = pd.DataFrame(columns=[user1_column_name,user2_column_name])
+    df_index = 0
+    for link in future_links:
+        user1 = link[0]
+        user2 = link[1]
+        data = [user1, user2]
+        df.loc[df_index] = data
+        df_index = df_index + 1
+    df.to_csv('predict_future_link.csv',index=False)
+
+
+from sklearn.model_selection import KFold
+def cross_validation(df):
+    n = len(df)
+    k = int(n / (n * 0.1))
+
+    vlaues = [0 , 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+
+    NodeProbability = {}
+    for factor_neighbor_probability in [0.9,0.8]:
+        for degrees_for_orig_cof in vlaues:
+            for degrees_for_h_cof in vlaues:
+                for clustering_cof in vlaues:
+                    for closeness_cof in vlaues:
+                        for betweenness_cof in [0.0]:
+                            if ((degrees_for_orig_cof + degrees_for_h_cof + clustering_cof + closeness_cof + betweenness_cof) == 1 ):
+                                NodeProbability[(factor_neighbor_probability ,degrees_for_orig_cof , degrees_for_h_cof , clustering_cof , closeness_cof , betweenness_cof)] = 0
+
+    kf = KFold(n_splits=k, shuffle=True, random_state=2)
+    for train_index, test_index in kf.split(df):
+        train = df.iloc[train_index]
+        test = df.iloc[test_index]
+
+        nodes = get_all_graph_nodes(df)
+        G = get_graph_by_time_as_multiGraph(train)
+        H = build_h_graph(train, nodes)
+        nodeProbabilityClass = NodeProbabilityClass(G,H)
+
+        test_node = get_nodes(test)
+        test_node_size = len(test_node)
+
+        prop = NodeProbability.keys()
+        for coefs in prop:
+            factor_neighbor_probability = coefs[0]
+            degrees_for_orig_cof = coefs[1]
+            degrees_for_h_cof = coefs[2]
+            clustering_cof = coefs[3]
+            closeness_cof = coefs[4]
+            betweenness_cof = coefs[5]
+
+            node_probability = nodeProbabilityClass.get_probability_for_each_node(degrees_for_orig_cof,degrees_for_h_cof,clustering_cof,closeness_cof,betweenness_cof)
+            neighbors_node_probability = get_probability_for_each_neighbors_node(G, node_probability, factor_neighbor_probability)
+
+            future_links = []
+            for l in range(0, test_node_size):
+                node1 = random_distr(node_probability)
+                neighbors = neighbors_node_probability[node1]
+                node2 = random_distr(neighbors)
+                future_links.append((node1, node2))
+
+            c = 0
+            test_node_temp = list(test_node)
+            for future_link in future_links:
+                if future_link in test_node_temp:
+                    test_node_temp.remove(future_link)
+                    c = c + 1
+
+            p = 1.0 * c / test_node_size
+            print("For lamda {} recive {}".format(coefs, p))
+            if NodeProbability[coefs] == 0:
+                NodeProbability[coefs] = p
+            else:
+                NodeProbability[coefs] = (NodeProbability[coefs] + p) / 2
+
+    print("final result : ")
+    max = -1
+
+    for key in NodeProbability.keys():
+        print("For lamda {} recive {}".format(key, NodeProbability[key]))
+        if max == -1 :
+            max = NodeProbability[key]
+            maxkey = key
+        elif max < NodeProbability[key]:
+            max = NodeProbability[key]
+            maxkey = key
+
+
+    print("Max lamda {} recive {}".format(maxkey, max))
+
+
+
+def get_nodes(df):
+    tupels = []
+    for index, row in df.iterrows():
+        user1 = row[user1_column_name]
+        user2 = row[user2_column_name]
+        tupels.append((user1, user2))
+    return tupels
+
+def random_distr(l):
+    r = random.uniform(0, 1)
+    s = 0
+    for item in l.keys():
+        prob = l[item]
+        s += prob
+        if s >= r:
+            return item
+    return item  # Might occur because of floating point inaccuracies
 
 
 if __name__ == '__main__':
     #Q1()
-    Q2()
+    #Q2()
     #Q3()
     #Q4()
+    CompetitivePart()
     # df = read_graph_by_time_file()
     # #g = get_graph_by_time_as_multiGraph(df)
     # g = build_h_graph(df,get_all_graph_nodes(df))
