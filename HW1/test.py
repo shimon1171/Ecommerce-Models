@@ -30,6 +30,8 @@ def nCk(n,k):
     return 0
 
 def normalizing_dictionary_values(d):
+    if(len(d) == 0 or sum(d.itervalues()) == 0):
+        return d
     factor = 1.0 / sum(d.itervalues())
     for k in d:
         d[k] = d[k] * factor
@@ -78,6 +80,23 @@ def build_h_graph(df , nods):
 
     return G
 
+def build_h_graph_with_weight_is_1(df , nods):
+    G = nx.Graph()
+    G.add_nodes_from(list(nods))
+    graph = {}
+    for index, row in df.iterrows():
+        user1 = row[user1_column_name]
+        user2 = row[user2_column_name]
+        user1_to_user2 = (user1, user2)
+        user2_to_user1 = (user2, user1)
+        if user1_to_user2 not in graph and user2_to_user1 not in graph:
+            graph[user1_to_user2] = weak_edge
+            G.add_edge(user1, user2 , weight=1)
+        elif user2_to_user1 in graph:
+            graph[user2_to_user1] = strong_edge
+            G.add_edge(user1, user2, weight=1)
+    return G
+
 def build_h_graph_with_time(df , time):
     nodes = get_all_graph_nodes(df)
     filtered_df = df[ (df[ts_column_name] < time)] # get all samples that are lower that the given time
@@ -97,7 +116,15 @@ def get_h_sub_graph(H ,nodes , edge_weight ):
     G.add_edges_from(list_of_strong_edges)
     return G
 
-
+def write_dic_to_file(dic, file_name):
+    df = pd.DataFrame(columns=['key', 'value'])
+    df_index = 0
+    for key in dic.keys():
+        value = dic[key]
+        data = [key, value]
+        df.loc[df_index] = data
+        df_index = df_index + 1
+    df.to_csv(file_name)
 
 ###################################################
 ###################################################
@@ -109,7 +136,10 @@ def compute_distance_between_every_pair_of_nodes(G):
     spl = nx.all_pairs_shortest_path_length(G)
     return spl
 
+from matplotlib import rcParams
+
 def create_histogram_as_fig_2_10(frequencies , file_name="Empyt"):
+    rcParams.update({'figure.autolayout': True})
     plt.xlabel('Number of intermediaries')
     plt.ylabel("Number of paris", rotation=90)
     plt.plot(frequencies.keys(), frequencies.values(), '-bo')
@@ -144,8 +174,9 @@ def Q1():
 
     frequencies = Counter(length_list)
     create_histogram_as_fig_2_10(frequencies , 'q1a_2_10_fig.png')
+    write_dic_to_file(frequencies , 'q1a_2_10_fig.csv')
     create_histogram_as_fig_2_11(frequencies , 'q1a_2_11_fig.png')
-
+    write_dic_to_file(frequencies , 'q1a_2_11_fig.csv')
 
 ###################################################
 ###################################################
@@ -183,22 +214,33 @@ def cc(x, G):
 def compute_closeness_centrality(G):
     closeness_centrality = {}
     nodes = G.nodes()
-    number_of_nodes = len(nodes)
-    for node in nodes:
-        sum = 0
-        for node2 in nodes:
-            if node2 != node:
-                try:
-                    sum+=nx.shortest_path_length(G,node2,node)
-                except nx.exception.NetworkXNoPath:
-                    continue
-        if sum != 0:
-            closeness_centrality[node] = (number_of_nodes-1) / float(sum)
-        else:
-            closeness_centrality[node] = 0
+    N = len(nodes)
+
+    for com_nonds_set in nx.connected_components(H):
+        connected_components_nodes = list(com_nonds_set)
+        n = len(connected_components_nodes)
+        for u in connected_components_nodes:
+            sum = 0
+            for v in connected_components_nodes:
+                if u != v:
+                    try:
+                        sum += nx.shortest_path_length(G, u, v)
+                    except nx.exception.NetworkXNoPath:
+                        continue
+            if sum != 0:
+                closeness_centrality[u] = ((n - 1) /( N - 1)) * ((n - 1) / float(sum))
+            else:
+                closeness_centrality[u] = 0
+
     return closeness_centrality
 
+import time
+import datetime
+
 def compute_betweenness_centrality(G):
+    start_all = time.time()
+    print("Start compute_betweenness_centrality")
+
     betweenness = {}
     nodes = list(G.nodes())
     num_of_nodes = len(nodes)
@@ -206,31 +248,36 @@ def compute_betweenness_centrality(G):
     for x in nodes:
         betweenness[x] = 0
 
-    for i in range(0,num_of_nodes-1):
-        for j in range(i+1, num_of_nodes ):
-            s = nodes[i]
-            t = nodes[j]
-            try:
-                shortest_paths = list(nx.all_shortest_paths(G, source=s, target=t))
-            except nx.exception.NetworkXNoPath:
-                continue
-            number_of_shortest_paths = len(shortest_paths)
-            if (number_of_shortest_paths == 0):
-                continue
-            for x in nodes:
-                if ((s != x) and (t != x)):
-                    number_of_shortest_paths_include_x = 0
-                    for path in shortest_paths:
-                        if len(path) < 3 :
-                            continue
-                        if x in path:
-                            number_of_shortest_paths_include_x = number_of_shortest_paths_include_x + 1
-                    betweenness[x] = betweenness[x] + number_of_shortest_paths_include_x / number_of_shortest_paths
 
-        factor = 1.0 / float(nCk(num_of_nodes-1,2))
-        for node in nodes:
-            betweenness[node] = factor * betweenness[node]
+    for com_nonds_set in nx.connected_components(G):
+        connected_components_nodes = list(com_nonds_set)
+        n = len(connected_components_nodes)
+        if n > 2:
+            for i in range(0, n - 1):
+                for j in range(i + 1, n):
+                    s = connected_components_nodes[i]
+                    t = connected_components_nodes[j]
+                    try:
+                        shortest_paths = list(nx.all_shortest_paths(G,source=s,target=t))
+                    except nx.exception.NetworkXNoPath:
+                        continue
+                    number_of_shortest_paths = len(shortest_paths)
+                    if (number_of_shortest_paths == 0):
+                        continue
+                    for x in connected_components_nodes:
+                        if ((s != x) and (t != x)):
+                            number_of_shortest_paths_include_x = 0
+                            for path in shortest_paths:
+                                if len(path) < 3:
+                                    continue
+                                if x in path:
+                                    number_of_shortest_paths_include_x = number_of_shortest_paths_include_x + 1
+                            betweenness[x] = betweenness[x] + 2*(number_of_shortest_paths_include_x / number_of_shortest_paths)
 
+            factor = 1.0 / float(nCk(n-1,2))
+            for node in nodes:
+                betweenness[node] = factor * betweenness[node]
+    print("Stop compute_betweenness_centrality {}".format((datetime.datetime.now() - start_all)))
     return betweenness
 
 def create_histogram_for_degree_frequencies(frequencies , file_name="Empyt"):
@@ -246,7 +293,8 @@ def H_features(time):
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
     H = build_h_graph_with_time(df, time)
-    betweenness_centrality = compute_betweenness_centrality(H)
+    H1 = build_h_graph_with_weight_is_1(df,nodes)
+    betweenness_centrality = compute_betweenness_centrality(H1)
     degree = compute_degree(H)
     clustering_coeff = compute_clustering_coefficiente(H)
     closeness_centrality = compute_closeness_centrality(H)
@@ -261,6 +309,15 @@ def Q2():
     df = read_graph_by_time_file()
     time = df[ts_column_name].max;
     nodes_feat_dict = H_features(time)
+
+def Q2b():
+    df = read_graph_by_time_file()
+    nodes = get_all_graph_nodes(df)
+    H = build_h_graph(df, nodes)
+    degree = compute_degree(H)
+    frequencies = Counter(degree.values())
+    create_histogram_for_degree_frequencies(frequencies,'q2b_fig.png')
+    write_dic_to_file(frequencies, 'q2b_fig.csv')
 
 
 ###################################################
@@ -338,8 +395,10 @@ def Q3():
     H = build_h_graph_with_time(df, time)
     frequencies = get_neighborhood_overlap_list_with_weight(H,strong_edge)
     create_histogram_for_neighborhood_overlap_frequencies(frequencies , 'q3a_strong.png')
+    write_dic_to_file(frequencies , 'q3a_strong.csv')
     frequencies = get_neighborhood_overlap_list_with_weight(H,weak_edge)
     create_histogram_for_neighborhood_overlap_frequencies(frequencies, 'q3a_weak.png')
+    write_dic_to_file(frequencies, 'q3a_weak.csv')
 
 ###################################################
 ###################################################
@@ -460,7 +519,7 @@ class NodeProbabilityClass:
         degrees_for_h = compute_degree(H)
         clustering = compute_clustering_coefficiente(H)
         closeness = compute_closeness_centrality(H)
-        #betweenness = compute_betweenness_centrality_(H,sph)
+        #betweenness = compute_betweenness_centrality(H)
 
         self.degrees_for_orig = normalizing_dictionary_values(degrees_for_orig)
         self.degrees_for_h = normalizing_dictionary_values(degrees_for_h)
@@ -590,7 +649,7 @@ def cross_validation(df):
     vlaues = [0 , 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
     NodeProbability = {}
-    for factor_neighbor_probability in [0.9,0.8]:
+    for factor_neighbor_probability in   vlaues:
         for degrees_for_orig_cof in vlaues:
             for degrees_for_h_cof in vlaues:
                 for clustering_cof in vlaues:
@@ -682,11 +741,12 @@ def random_distr(l):
 
 
 if __name__ == '__main__':
-    #Q1()
+    Q1()
     #Q2()
-    #Q3()
+    Q2b()
+    Q3()
     #Q4()
-    CompetitivePart()
+    #CompetitivePart()
     # df = read_graph_by_time_file()
     # #g = get_graph_by_time_as_multiGraph(df)
     # g = build_h_graph(df,get_all_graph_nodes(df))
