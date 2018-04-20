@@ -82,6 +82,7 @@ def build_h_graph(df , nods):
 
 def build_h_graph_with_weight_is_1(df , nods):
     G = nx.Graph()
+
     G.add_nodes_from(list(nods))
     graph = {}
     for index, row in df.iterrows():
@@ -216,7 +217,7 @@ def compute_closeness_centrality(G):
     nodes = G.nodes()
     N = len(nodes)
 
-    for com_nonds_set in nx.connected_components(H):
+    for com_nonds_set in nx.connected_components(G):
         connected_components_nodes = list(com_nonds_set)
         n = len(connected_components_nodes)
         for u in connected_components_nodes:
@@ -238,7 +239,7 @@ import time
 import datetime
 
 def compute_betweenness_centrality(G):
-    start_all = time.time()
+    start_all = datetime.datetime.now()
     print("Start compute_betweenness_centrality")
 
     betweenness = {}
@@ -277,7 +278,7 @@ def compute_betweenness_centrality(G):
             factor = 1.0 / float(nCk(n-1,2))
             for node in nodes:
                 betweenness[node] = factor * betweenness[node]
-    print("Stop compute_betweenness_centrality {}".format((datetime.datetime.now() - start_all)))
+    print("Stop compute_betweenness_centrality {}".format( (datetime.datetime.now() - start_all) ))
     return betweenness
 
 def create_histogram_for_degree_frequencies(frequencies , file_name="Empyt"):
@@ -287,6 +288,38 @@ def create_histogram_for_degree_frequencies(frequencies , file_name="Empyt"):
     if(file_name != "Empyt"):
         plt.savefig(file_name, format='png', dpi=600)
     plt.close()
+
+
+def H_features_test():
+    start_all = datetime.datetime.now()
+    print("Start H_features_test")
+    time = 1083109470
+
+    df = read_graph_by_time_file()
+    df = df[(df[ts_column_name] < time)]  # get all samples that are lower that the given time
+
+    nodes = get_all_graph_nodes(df)
+    H = build_h_graph(df,nodes)
+
+    H.remove_edge(229,230)
+    H.remove_edge(264,158)
+    H.remove_nodes_from([229, 230, 264, 158])
+
+    betweenness_centrality = compute_betweenness_centrality(H)
+    degree = compute_degree(H)
+    clustering_coeff = compute_clustering_coefficiente(H)
+    closeness_centrality = compute_closeness_centrality(H)
+
+    nodes = H.nodes()
+    nodes_feat_dict = {}
+
+    for node in nodes:
+        nodes_feat_dict[node] = [degree[node], clustering_coeff[node], closeness_centrality[node], betweenness_centrality[node]]
+
+    print("Stop cH_features_test {}".format((datetime.datetime.now() - start_all)))
+    return nodes_feat_dict
+
+
 
 def H_features(time):
     nodes_feat_dict = {}
@@ -300,8 +333,8 @@ def H_features(time):
     closeness_centrality = compute_closeness_centrality(H)
 
 
-    for i, node in enumerate(nodes):
-        nodes_feat_dict[node] = [degree[i], clustering_coeff[i], closeness_centrality[i], betweenness_centrality[i]]
+    for node in nodes:
+        nodes_feat_dict[node] = [degree[node], clustering_coeff[node], closeness_centrality[node], betweenness_centrality[node]]
 
     return nodes_feat_dict
 
@@ -741,10 +774,12 @@ def random_distr(l):
 
 
 if __name__ == '__main__':
-    Q1()
+    H_features_test()
+
+    #Q1()
     #Q2()
-    Q2b()
-    Q3()
+    #Q2b()
+    #Q3()
     #Q4()
     #CompetitivePart()
     # df = read_graph_by_time_file()
