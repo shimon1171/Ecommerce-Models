@@ -183,50 +183,6 @@ def compute_betweenness_centrality(G):
 
     return betweenness
 
-def compute_betweenness_centrality2(G):
-    betweenness = {}
-    nodes = list(G.nodes())
-    for i in nodes:
-        betweenness[i] = 0
-    for node in nodes:
-        s = []
-        p = {}
-        for i in nodes:
-            p[i] = []
-        shortest = {}
-        for i in nodes:
-            shortest[i] = 0
-        shortest[node] = 1
-        distance = {}
-        for x in nodes:
-            distance[x] = -1
-        distance[node] = 0
-        q = deque()
-        q.append(node)
-        while q:
-            v = q.popleft()
-            s.append(v)
-            for neighbor in nx.all_neighbors(G, v):
-                if distance[neighbor] < 0:
-                    q.append(neighbor)
-                    distance[neighbor] = distance[v] + 1
-
-                if distance[neighbor] == (distance[v] + 1):
-                    shortest[neighbor] = shortest[neighbor] + shortest[v]
-                    p[neighbor].append(v)
-        e = {}
-        for i in nodes:
-            e[i] = 0
-        while s:
-            w = s.pop()
-            for y in p[w]:
-                e[y] = e[y] + float(float(shortest[y] * (1 + e[w])) / shortest[w])
-                if w != node:
-                    betweenness[w] = (betweenness[w] + e[w])
-
-    return betweenness
-
-
 def get_neighborhood_overlap(G):
     edges_no_overlap = {}
     edgeDataView = G.edges(data=True)
@@ -252,7 +208,7 @@ def H_features(time):
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
     H = build_h_graph_with_time(df, time)
-    betweenness_centrality = compute_betweenness_centrality2(H)
+    betweenness_centrality = compute_betweenness_centrality(H)
     degree = compute_degree(H)
     clustering_coeff = compute_clustering_coefficiente(H)
     closeness_centrality = compute_closeness_centrality(H)
