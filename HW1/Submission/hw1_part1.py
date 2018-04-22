@@ -203,7 +203,7 @@ def get_neighborhood_overlap(G):
 Question 2 parts 2.a-2.c
 '''
 
-def H_features(time):
+def H_features(time=t):
     nodes_feat_dict = {}
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
@@ -232,7 +232,7 @@ def calc_no(time=t):
 Question 4
 '''
 
-def stc_index(time):
+def stc_index(time=t):
     df = read_graph_by_time_file()
     nodes = get_all_graph_nodes(df)
     H = build_h_graph_with_time(df, time)
