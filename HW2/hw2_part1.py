@@ -11,6 +11,8 @@ output_colunm_names = 'output'
 removed_colunm_names = 'removed'
 size_colunm_names = 'size'
 time_colunm_names = 'time'
+diff_time_colunm_names = 'diff_time'
+satoshi_per_byte_colunm_names = 'satoshi_per_byte'
 NEVER = -1
 
 def convert_bitcoin_mempool_data_json_to_csv(file_name):
@@ -25,6 +27,10 @@ def convert_bitcoin_mempool_data_json_to_csv(file_name):
                 listOfDic.append(dic)
     df = pd.DataFrame(listOfDic)
     df = df[ (df[output_colunm_names] != -1) &  (df[removed_colunm_names] != -1) ]
+
+    df[diff_time_colunm_names] = df[removed_colunm_names] - df[time_colunm_names]
+    df[satoshi_per_byte_colunm_names] = df[fee_colunm_names] / df[size_colunm_names]
+
     return df
     #df.to_csv('bitcoin_mempool_data.csv', index=False)
 
@@ -44,7 +50,8 @@ def load_mempool_data(mempool_data_full_path, current_time=1510264253.0):
 
 # return a list of the tx id's to insert into a block
 def greedy_knapsack(block_size, mempool_data):
-    md = mempool_data.sort_values([fee_colunm_names, TXID_colunm_names], ascending=[True, False])
+
+    md = mempool_data.sort_values([satoshi_per_byte_colunm_names, TXID_colunm_names], ascending=[False,  True])
     tx_ids = []
     for index,row in md.iterrows():
         size = row[size_colunm_names]
@@ -102,19 +109,16 @@ def truthful_bidding_agent(tx_size, value, urgency, mempool_data, block_size):
 def forward_bidding_agent(tx_size, value, urgency, mempool_data, block_size):
 
     md = mempool_data.copy()
-    diff_time_colunm_names = 'diff_time'
-    md[diff_time_colunm_names] = md[removed_colunm_names] - md[time_colunm_names]
-
     tx_list = greedy_knapsack(block_size, md)
     md = md[(md[TXID_colunm_names].isin(tx_list))]
 
     z_dic = {}
     for z in range(0,5000,10):
-        md_z = md[ (md[fee_colunm_names] <= z) ]
+        md_z = md[ (md[satoshi_per_byte_colunm_names] <= z) ]
         if len(md_z) ==0:
             z_dic[z] = NEVER
         else:
-            md_z = md_z.sort_values(fee_colunm_names, ascending=[False])
+            md_z = md_z.sort_values(satoshi_per_byte_colunm_names, ascending=[False])
             md_z = md_z.head(1)
             diff_time = md_z[diff_time_colunm_names].iloc[0]
             z_dic[z] = diff_time

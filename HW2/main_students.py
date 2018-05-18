@@ -26,10 +26,10 @@ def main():
 	# tx_to_insert_list=greedy_knapsack(block_size, mempool_data)
 	# print ('pay-your-bid revenue: ', evaluate_block(tx_to_insert_list, mempool_data))
     #
-	#
+    #
 	# vcg=VCG(block_size, tx_to_insert_list, mempool_data)
 	# print ('vcg revenue: ',sum(vcg.values()))
-	#
+
 	
 	############################
 	# Question 2
