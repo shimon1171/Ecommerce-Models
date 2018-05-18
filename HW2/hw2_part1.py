@@ -2,7 +2,7 @@
 
 import json
 import pandas as pd
-
+import os
 
 # const
 TXID_colunm_names = 'TXID'
@@ -11,7 +11,7 @@ output_colunm_names = 'output'
 removed_colunm_names = 'removed'
 size_colunm_names = 'size'
 time_colunm_names = 'time'
-
+NEVER = -1
 
 def convert_bitcoin_mempool_data_json_to_csv(file_name):
     #file_name = 'bitcoin_mempool_data.json'
@@ -24,6 +24,7 @@ def convert_bitcoin_mempool_data_json_to_csv(file_name):
                 dic[TXID_colunm_names] = txid
                 listOfDic.append(dic)
     df = pd.DataFrame(listOfDic)
+    df = df[ (df[output_colunm_names] != -1) &  (df[removed_colunm_names] != -1) ]
     return df
     #df.to_csv('bitcoin_mempool_data.csv', index=False)
 
@@ -43,13 +44,19 @@ def load_mempool_data(mempool_data_full_path, current_time=1510264253.0):
 
 # return a list of the tx id's to insert into a block
 def greedy_knapsack(block_size, mempool_data):
-    sum_colunm_names = 'sum'
     md = mempool_data.sort_values([fee_colunm_names, TXID_colunm_names], ascending=[True, False])
-    md[sum_colunm_names] = md[size_colunm_names].cumsum()
-    md = md[ (md[sum_colunm_names] < block_size)]
-    tx_ids = list(md[TXID_colunm_names])
+    tx_ids = []
+    for index,row in md.iterrows():
+        size = row[size_colunm_names]
+        if size < block_size:
+            tx_ids.append(row[TXID_colunm_names])
+            block_size = block_size - size
     return tx_ids
 
+ # sum_colunm_names = 'sum'
+ #    md[sum_colunm_names] = md[size_colunm_names].cumsum()
+ #    md = md[ (md[sum_colunm_names] < block_size)]
+ #    tx_ids = list(md[TXID_colunm_names])
 
 def evaluate_block(tx_list, mempool_data):
     md = mempool_data[(mempool_data[TXID_colunm_names].isin(tx_list))]
@@ -76,16 +83,61 @@ def VCG(block_size, tx_list, mempool_data):
     for txi_id in tx_list:
         vs = Vs(block_size, mempool_data, txi_id)
         vs_j = Vs_j(block_size , mempool_data, txi_id)
-        Pi[txi_id] = vs - vs_j
+        res = vs - vs_j
+        if res < 0 :
+            res = 0
+        Pi[txi_id] = res
     return Pi
 
 
+############################
+# Part 2
+############################
+
+def truthful_bidding_agent(tx_size, value, urgency, mempool_data, block_size):
+
+	z = value*(2**(-3.6*urgency))
+	return z
+
+def forward_bidding_agent(tx_size, value, urgency, mempool_data, block_size):
+
+    md = mempool_data.copy()
+    diff_time_colunm_names = 'diff_time'
+    md[diff_time_colunm_names] = md[removed_colunm_names] - md[time_colunm_names]
+
+    tx_list = greedy_knapsack(block_size, md)
+    md = md[(md[TXID_colunm_names].isin(tx_list))]
+
+    z_dic = {}
+    for z in range(0,5000,10):
+        md_z = md[ (md[fee_colunm_names] <= z) ]
+        if len(md_z) ==0:
+            z_dic[z] = NEVER
+        else:
+            md_z = md_z.sort_values(fee_colunm_names, ascending=[False])
+            md_z = md_z.head(1)
+            diff_time = md_z[diff_time_colunm_names].iloc[0]
+            z_dic[z] = diff_time
+
+    maxZ = 0
+    max_utility_value = float("-inf")
+    for z in z_dic.keys():
+        GTz = z_dic[z]
+        if GTz != NEVER:
+            utility_value = utility(value,urgency,tx_size,z,GTz)
+            if utility_value > max_utility_value:
+                max_utility_value = utility_value
+                maxZ = z
+
+    return maxZ
 
 
 
 
-
-
+def utility(v,r,size,z,t):
+    if t == NEVER : # t==never
+        return 0
+    return v * 2 ** ( (-1*t)* (r/1000.0) ) - z * size
 
 
 
@@ -97,3 +149,19 @@ if __name__ == '__main__':
     revenue_prices = VCG(block_size,tx_list,mempool_data)
     #convert_bitcoin_mempool_data_json_to_csv()
 
+
+
+
+
+
+
+    # from scipy import stats
+    # import matplotlib.pyplot as plt
+    # x = md[fee_colunm_names]
+    # y = md[diff_time_colunm_names]
+    #
+    # slope, intercept, r_value, p_value, std_err = stats.linregress(x ,y)
+    # line1 = intercept + slope * x
+    #
+    # plt.plot(line1, 'r-')
+    # plt.plot(x, y, 'ro')
