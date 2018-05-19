@@ -58,7 +58,7 @@ def agent_gains(z , k , mempool_data , v , r , size):
     return gains
 
 
-def get_z_to_tx(v,r,size , md , z_list):
+def get_z_to_tx(v,r,size , md , z_list,k):
 
     maxZ = 0
     min_gains_value = float("inf")
@@ -88,8 +88,11 @@ def set_z_to_file():
         v = row['v']
         r = row['r']
         size = row['size']
-        z = get_z_to_tx(v, r, size, mempool_data,z_list)
+        print(row['new_tx_id'])
+        z = get_z_to_tx(v, r, size, mempool_data,z_list,k)
         df.loc[index, 'z'] = z
+
+    df.to_csv('hw2_part2_with_z.csv')
 
 
 
