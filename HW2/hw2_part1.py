@@ -109,11 +109,10 @@ def truthful_bidding_agent(tx_size, value, urgency, mempool_data, block_size):
 def forward_bidding_agent(tx_size, value, urgency, mempool_data, block_size):
 
     md = mempool_data.copy()
-    tx_list = greedy_knapsack(block_size, md)
-    md = md[(md[TXID_colunm_names].isin(tx_list))]
 
     z_dic = {}
-    for z in range(0,5000,10):
+    for z in range(0,5010,10):
+
         md_z = md[ (md[satoshi_per_byte_colunm_names] <= z) ]
         if len(md_z) ==0:
             z_dic[z] = NEVER
