@@ -28,14 +28,19 @@ class ModelData:
         self.user_index = self._generate_user_index()
         self._matix_a_index()
 
+
     def _matix_a_index(self):
+
+        movies = sorted(set(self.train_x['movie']) | set(self.test_x['movie']))
+        users = sorted(set(self.train_x['user']) | set(self.test_x['user']))
+
         index = 0
         self.matix_a_index_movie = {}
-        for movie in self.movies:
+        for movie in movies:
             self.matix_a_index_movie[movie] = index
             index += 1
         self.matix_a_index_users = {}
-        for user in self.users:
+        for user in users:
             self.matix_a_index_users[user] = index
             index += 1
 
@@ -187,22 +192,27 @@ def fit_parameters(matrix_a, vector_c):
 
 """Calc the basic parameters vector and run the basic model r_hat = r_avg + b_u + b_i""" # done
 def calc_parameters(r_avg, train_x, train_y, data: ModelData = None):
-    b = {}
+    matix_a_index_movie = data.matix_a_index_movie
+    matix_a_index_users = data.matix_a_index_users
+
+    b = [0 for _ in range(len(matix_a_index_movie) + len(matix_a_index_users))]
+
     group_by_user = train_x.groupby(by='user')
     for user_name, user_group in group_by_user:
         indexes = user_group.index.values.tolist()
         rate_df = train_y.loc[indexes]
         r_u_avg = rate_df['rate'].mean()
-        b_u = ( r_u_avg - r_avg )
-        key = "user_{}".format(user_name)
+        b_u = (r_u_avg - r_avg)
+        key = matix_a_index_users[user_name]
         b[key] = b_u
+
     group_by_movie = train_x.groupby(by='movie')
     for movie_name, movie_group in group_by_movie:
         indexes = movie_group.index.values.tolist()
         rate_df = train_y.loc[indexes]
         r_i_avg = rate_df['rate'].mean()
         b_i = (r_i_avg - r_avg)
-        key = "movie_{}".format(movie_name)
+        key = matix_a_index_movie[movie_name]
         b[key] = b_i
     return b
 
@@ -214,25 +224,23 @@ def calc_average_rating(train_y):
 
 """this function to return the predictions list ordered by the same index as in argument test_x""" # done
 def model_inference(test_x, vector_b, r_avg, data: ModelData = None):
+    matix_a_index_movie = data.matix_a_index_movie
+    matix_a_index_users = data.matix_a_index_users
+
     predictions_list = []
     for i in test_x.index:
         df = test_x.loc[i]
-        user = df['user']
-        user_name = "user_{}".format(user)
-        if user_name in vector_b:
-            user_b = vector_b[user_name]
-        else:
-            user_b = 0
+        user_name = df['user']
+        key = matix_a_index_users[user_name]
+        user_b = vector_b[key]
 
-        movie = df['movie']
-        movie_name = "movie_{}".format(movie)
-        if movie_name in vector_b:
-            movie_b = vector_b[movie_name]
-        else:
-            movie_b = 0
+        movie_name = df['movie']
+        matix_a_index_movie[movie_name]
+        movie_b = vector_b[key]
 
         r = r_avg + user_b + movie_b
         predictions_list += [r]
+
     return predictions_list
 
 
@@ -246,7 +254,7 @@ def model_inference_with_income(test_x, vector_b, r_avg, data: ModelData = None)
     return predictions_list
 
 """"Calc the RMSE """ # done
-def calc_error(predictions_df, test_df):
+def calc_error_old(predictions_df, test_df):
     sum = 0
     for i in predictions_df.index:
         df = predictions_df.loc[i]
@@ -257,6 +265,18 @@ def calc_error(predictions_df, test_df):
     sum = float(sum) / len(predictions_df)
     rmse = np.sqrt(sum)
     return rmse
+
+def calc_error(predictions_df, test_df):
+    indexes = list(predictions_df.index)
+    rate_df = test_df.loc[indexes]
+    p_df = predictions_df.copy()
+    p_df['rate'] = rate_df['rate']
+    p_df['power'] = ( p_df['r_hat'] - p_df['rate'] ) ** 2
+    sum = p_df['power'].mean()
+    rmse = np.sqrt(sum)
+    return rmse
+
+
 
 """"Calc the avg RMSE for each movie""" # done
 def calc_avg_error(predictions_df, test_df):
