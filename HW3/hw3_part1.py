@@ -44,7 +44,11 @@ class ModelData:
             self.matix_a_index_users[user] = index
             index += 1
 
-
+        index = 0
+        self.matix_a_index_users_with_income = {}
+        for user in users:
+            self.matix_a_index_users_with_income[user] = index
+            index += 1
 
     def _generate_users(self):
         users = sorted(set(self.train_x['user']))
@@ -154,6 +158,51 @@ def create_coefficient_matrix(train_x, data: ModelData = None):
 
 
 def create_coefficient_matrix_with_income(train_x, data: ModelData = None):
+    matrix_timer = Timer.Timer('Matrix A creation')
+    # TODO: Modify this function to return the coefficient matrix A as seen in the lecture (slides 24 - 37).
+    users = data.get_users()
+    number_of_colunm =  len(users) + 1
+    number_of_rows = len(train_x)
+
+    dic = {}
+    matix_a_index_users = data.matix_a_index_users_with_income
+    incomes = data.incomes
+    row_index = 0
+    for index, row in train_x.iterrows():
+        user = row['user']
+        j = matix_a_index_users[user]
+        tuple = (row_index, j)
+        dic[tuple] = 1
+        movie = row['movie']
+        income = incomes[movie]
+        tuple = (row_index, number_of_colunm-1)
+        dic[tuple] = income
+        row_index += 1
+
+    for i in range(number_of_colunm):
+        tuple = (0, i)
+        if tuple in dic:
+            continue
+        else:
+            dic[tuple] = 0.001 * np.random.random()
+
+
+    row = []
+    col = []
+    data_values = []
+    for tuple in dic.keys():
+        value = dic[tuple]
+        row.append(tuple[0])
+        col.append(tuple[1])
+        data_values.append(value)
+
+    matrix_a = csr_matrix((data_values, (row, col)), shape=((number_of_rows, number_of_colunm)))
+
+    matrix_timer.stop()
+
+    return matrix_a
+
+
     matrix_timer = Timer.Timer('Matrix A with income creation')
     # TODO: Modify this function to return a coefficient matrix A for the new model with income
     users = data.get_users()
@@ -247,11 +296,27 @@ def model_inference(test_x, vector_b, r_avg, data: ModelData = None):
 def model_inference_with_income(test_x, vector_b, r_avg, data: ModelData = None):
     # TODO: Modify this function to return the predictions list ordered by the same index as in argument test_x
     # TODO: based on the modified model with income
+
+    matix_a_index_users = data.matix_a_index_users_with_income
+    len_b = len(vector_b)
+    incomes = data.incomes
+    bI = vector_b[len_b - 1]
     predictions_list = []
     for i in test_x.index:
-        # print(i)
-        predictions_list += [r_avg + data.get_movie_income(57)]
+        df = test_x.loc[i]
+        user_name = df['user']
+        key = matix_a_index_users[user_name]
+        user_b = vector_b[key]
+
+        movie_name = df['movie']
+        income = incomes[movie_name]
+        Im = income * ( 1.0 / pow(10,10) )
+
+        r = r_avg + user_b + bI*Im
+        predictions_list += [r]
+
     return predictions_list
+
 
 """"Calc the RMSE """ # done
 def calc_error_old(predictions_df, test_df):
