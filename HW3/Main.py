@@ -84,7 +84,7 @@ def main():
     model2_timer = Timer.Timer('Fitted Model with income')
     """Construct the coefficients matrix A for the model r_hat = r_avg + b_u + movie_income * b_income where 
     b_income stands as the movie income weight parameter"""
-    A2 = st.create_coefficient_matrrix_with_income(data.train_x, data)
+    A2 = st.create_coefficient_matrix_with_income(data.train_x, data)
 
     """Fit the parameters vector to minimize the least squares error"""
     b2 = st.fit_parameters(A2, c)

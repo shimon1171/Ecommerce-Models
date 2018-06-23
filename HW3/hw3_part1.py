@@ -114,7 +114,7 @@ def create_coefficient_matrix(train_x, data: ModelData = None):
     # TODO: Modify this function to return the coefficient matrix A as seen in the lecture (slides 24 - 37).
     movies = data.get_movies()
     users = data.get_users()
-    number_of_colunm = len(movies) + len(users)
+    number_of_colunm = max(data.matix_a_index_users.values()) + 1
     number_of_rows = len(train_x)
 
     dic = {}
@@ -131,7 +131,6 @@ def create_coefficient_matrix(train_x, data: ModelData = None):
         j = matix_a_index_users[user]
         tuple = (row_index, j)
         dic[tuple] = 1
-
         row_index += 1
 
     for i in range(number_of_colunm):
@@ -149,6 +148,9 @@ def create_coefficient_matrix(train_x, data: ModelData = None):
         row.append(tuple[0])
         col.append(tuple[1])
         data_values.append(value)
+        if tuple[1] > number_of_colunm:
+            print(tuple[1])
+            print(tuple)
 
     matrix_a = csr_matrix((data_values, (row, col)), shape=((number_of_rows,number_of_colunm)))
 
@@ -203,14 +205,6 @@ def create_coefficient_matrix_with_income(train_x, data: ModelData = None):
     return matrix_a
 
 
-    matrix_timer = Timer.Timer('Matrix A with income creation')
-    # TODO: Modify this function to return a coefficient matrix A for the new model with income
-    users = data.get_users()
-    matrix_a = np.array([[1 for _ in users] for _ in range(1000)])
-    matrix_timer.stop()
-    return matrix_a
-
-
 """Construct vector C from the train set as (r_i - r_avg) """ # done
 def construct_rating_vector(train_y, r_avg):
     df = train_y.copy()
@@ -233,11 +227,15 @@ def fit_parameters(matrix_a, vector_c):
     A = matrix_a
     At = A.transpose()
     AtA = At.dot(A)
-    AtAinv = inv(AtA)
-    Ac = At.dot(vector_c)
-    b = AtAinv.dot(Ac)
-    return b
+    AtC = At.dot(vector_c)
+    AtA = AtA.toarray()
+    AtC = AtC.toarray()
+    res = np.linalg.solve(AtA, AtC)
+    b = []
+    for i in res:
+        b.append(i[0])
 
+    return b
 
 """Calc the basic parameters vector and run the basic model r_hat = r_avg + b_u + b_i""" # done
 def calc_parameters(r_avg, train_x, train_y, data: ModelData = None):
