@@ -1,6 +1,8 @@
 from collections import defaultdict
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 from scipy.sparse import csr_matrix
